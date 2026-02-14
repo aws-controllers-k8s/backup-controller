@@ -1,0 +1,18 @@
+apiVersion: backup.services.k8s.aws/v1alpha1
+kind: BackupPlan
+metadata:
+  name: $PLAN_NAME
+spec:
+  backupPlan:
+    backupPlanName: $PLAN_NAME
+    rules:
+      - ruleName: daily-backup-rule
+        targetBackupVaultName: $TARGET_VAULT_NAME
+        scheduleExpression: "cron(0 12 * * ? *)"
+        startWindowMinutes: 60
+        completionWindowMinutes: 180
+        lifecycle:
+          deleteAfterDays: 35
+  backupPlanTags:
+    Environment: test
+    ManagedBy: ack

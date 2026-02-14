@@ -1,0 +1,2 @@
+# This file ensures the backup_plan hooks directory is tracked by git
+# Hook templates for BackupPlan resource will be added here

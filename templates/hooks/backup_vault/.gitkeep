@@ -1,0 +1,2 @@
+# This directory contains custom hook templates for BackupVault resource
+# Hook templates are used by the ACK code generator to customize controller behavior

@@ -1,0 +1,145 @@
+ignore:
+  resource_names:
+    - RecoveryPoint
+    - BackupJob
+    - RestoreJob
+    - ReportPlan
+    - Framework
+    - LegalHold
+    - LogicallyAirGappedBackupVault
+    - RestoreAccessBackupVault
+    - RestoreTestingPlan
+    - RestoreTestingSelection
+    - TieringConfiguration
+  field_paths:
+    - CreateBackupVaultInput.CreatorRequestId
+    - CreateBackupPlanInput.CreatorRequestId
+    - CreateBackupSelectionInput.CreatorRequestId
+  operations: null
+
+resources:
+  BackupVault:
+    print:
+      additional_columns:
+        - name: ARN
+          json_path: .status.ackResourceMetadata.arn
+          type: string
+          index: 1
+    tags:
+      path: BackupVaultTags
+    fields:
+      BackupVaultName:
+        is_primary_key: true
+        is_immutable: true
+        print:
+          name: VAULT-NAME
+          index: 0
+      EncryptionKeyArn:
+        is_immutable: true
+      BackupVaultTags:
+        compare:
+          is_ignored: true
+      NumberOfRecoveryPoints:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: NumberOfRecoveryPoints
+      Locked:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: Locked
+      LockDate:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: LockDate
+      MinRetentionDays:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: MinRetentionDays
+      MaxRetentionDays:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: MaxRetentionDays
+    hooks:
+      sdk_create_post_set_output:
+        template_path: hooks/backup_vault/sdk_create_post_set_output.go.tpl
+      sdk_read_one_post_set_output:
+        template_path: hooks/backup_vault/sdk_read_one_post_set_output.go.tpl
+    exceptions:
+      terminal_codes:
+        - InvalidParameterValueException
+        - AlreadyExistsException
+        - LimitExceededException
+        - AccessDeniedException
+      # InvalidResourceStateException occurs when deleting a vault with recovery points
+      # This is NOT terminal - user can delete recovery points and retry
+      recoverable_codes:
+        - InvalidResourceStateException
+
+  BackupPlan:
+    print:
+      additional_columns:
+        - name: ARN
+          json_path: .status.ackResourceMetadata.arn
+          type: string
+          index: 1
+    tags:
+      path: BackupPlanTags
+    fields:
+      BackupPlanId:
+        is_primary_key: true
+        is_read_only: true
+        print:
+          name: PLAN-ID
+          index: 0
+      BackupPlanTags:
+        compare:
+          is_ignored: true
+    update_operation:
+      custom_method_name: customUpdateBackupPlan
+    hooks:
+      sdk_create_post_set_output:
+        template_path: hooks/backup_plan/sdk_create_post_set_output.go.tpl
+      sdk_read_one_post_set_output:
+        template_path: hooks/backup_plan/sdk_read_one_post_set_output.go.tpl
+    exceptions:
+      terminal_codes:
+        - InvalidParameterValueException
+        - AlreadyExistsException
+        - LimitExceededException
+        - AccessDeniedException
+
+  BackupSelection:
+    tags:
+      ignore: true
+    fields:
+      SelectionId:
+        is_primary_key: true
+        is_read_only: true
+        print:
+          name: SELECTION-ID
+          index: 0
+      BackupPlanId:
+        is_immutable: true
+        print:
+          name: PLAN-ID
+          index: 1
+      BackupSelection:
+        is_immutable: true
+    hooks:
+      sdk_create_post_set_output:
+        template_path: hooks/backup_selection/sdk_create_post_set_output.go.tpl
+    exceptions:
+      terminal_codes:
+        - InvalidParameterValueException
+        - AlreadyExistsException
+        - LimitExceededException
+        - AccessDeniedException
+
+sdk_names:
+  model_name: backup
+  package_name: backup

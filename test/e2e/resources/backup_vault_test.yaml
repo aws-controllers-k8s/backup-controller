@@ -1,0 +1,9 @@
+apiVersion: backup.services.k8s.aws/v1alpha1
+kind: BackupVault
+metadata:
+  name: $VAULT_NAME
+spec:
+  backupVaultName: $VAULT_NAME
+  backupVaultTags:
+    Environment: test
+    ManagedBy: ack
