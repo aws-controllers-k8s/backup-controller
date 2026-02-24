@@ -1,6 +1,13 @@
+operations:
+  CreateBackupPlan:
+    input_wrapper_field_path: BackupPlan
+  UpdateBackupPlan:
+    input_wrapper_field_path: BackupPlan
+  GetBackupPlan:
+    output_wrapper_field_path: BackupPlan
+
 ignore:
   resource_names:
-    - BackupPlan
     - BackupSelection
     - Framework
     - LegalHold
@@ -35,5 +42,34 @@ resources:
       errors:
         404:
           code: AccessDeniedException
+    tags:
+      ignore: true
+  BackupPlan:
+    hooks:
+      sdk_update_post_build_request:
+        template_path: hooks/backup_plan/sdk_update_post_build_request.go.tpl
+    fields:
+      BackupPlanID:
+        is_primary_key: true
+      Rules.TargetBackupVaultName:
+        references:
+          resource: BackupVault
+          path: Spec.Name
+    renames:
+      operations:
+        CreateBackupPlan:
+          input_fields:
+            BackupPlanName: Name
+            BackupPlanTags: Tags
+        UpdateBackupPlan:
+          input_fields:
+            BackupPlanName: Name
+        GetBackupPlan:
+          output_fields:
+            BackupPlanName: Name
+    exceptions:
+      errors:
+        404:
+          code: ResourceNotFoundException
     tags:
       ignore: true
