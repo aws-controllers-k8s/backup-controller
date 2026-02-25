@@ -2,7 +2,6 @@ ignore:
   resource_names:
     - BackupPlan
     - BackupSelection
-    - BackupVault
     - Framework
     - LegalHold
     - LogicallyAirGappedBackupVault
@@ -12,3 +11,29 @@ ignore:
     - RestoreTestingSelection
     - TieringConfiguration
   field_paths: []
+
+resources:
+  BackupVault:
+    fields:
+      Name:
+        is_primary_key: true
+    renames:
+      operations:
+        CreateBackupVault:
+          input_fields:
+            BackupVaultName: Name
+            BackupVaultTags: Tags
+        DeleteBackupVault:
+          input_fields:
+            BackupVaultName: Name
+        DescribeBackupVault:
+          input_fields:
+            BackupVaultName: Name
+          output_fields:
+            BackupVaultName: Name
+    exceptions:
+      errors:
+        404:
+          code: AccessDeniedException
+    tags:
+      ignore: true

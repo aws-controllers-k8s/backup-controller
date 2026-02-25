@@ -70,6 +70,26 @@ rules:
   - list
   - watch
 - apiGroups:
+  - backup.services.k8s.aws
+  resources:
+  - backupvaults
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - backup.services.k8s.aws
+  resources:
+  - backupvaults/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - services.k8s.aws
   resources:
   - fieldexports
