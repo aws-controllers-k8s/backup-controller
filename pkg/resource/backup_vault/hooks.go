@@ -32,6 +32,8 @@ func (rm *resourceManager) customUpdateBackupVault(
 	latest *resource,
 	delta *ackcompare.Delta,
 ) (*resource, error) {
+	updatedDesired := desired.DeepCopy()
+	updatedDesired.SetStatus(latest)
 	if delta.DifferentAt("Spec.Tags") {
 		arn := string(*latest.ko.Status.ACKResourceMetadata.ARN)
 		err := syncTags(
@@ -43,5 +45,5 @@ func (rm *resourceManager) customUpdateBackupVault(
 			return nil, err
 		}
 	}
-	return desired, nil
+	return rm.concreteResource(updatedDesired), nil
 }
