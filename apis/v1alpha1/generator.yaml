@@ -19,8 +19,10 @@ resources:
       Name:
         is_primary_key: true
         is_immutable: true
-      # Cross-resource reference to KMS Key for encryption
+      # Cross-resource reference to KMS Key for encryption.
+      # Set at vault creation time and cannot be changed afterward.
       EncryptionKeyARN:
+        is_immutable: true
         references:
           resource: Key
           service_name: kms
@@ -71,6 +73,12 @@ resources:
         - path: Status.VaultState
           in:
             - AVAILABLE
+    # There is no UpdateBackupVault API. Fields must be updated via separate APIs.
+    update_operation:
+      custom_method_name: customUpdateBackupVault
+    hooks:
+      sdk_read_one_post_set_output:
+        template_path: hooks/backup_vault/sdk_read_one_post_set_output.go.tpl
     renames:
       operations:
         CreateBackupVault:

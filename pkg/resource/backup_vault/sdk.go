@@ -149,6 +149,23 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	// DescribeBackupVault does not return tags, so we fetch them separately
+	// using ListTags.
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+		tagsResp, err := rm.sdkapi.ListTags(ctx, &svcsdk.ListTagsInput{
+			ResourceArn: (*string)(ko.Status.ACKResourceMetadata.ARN),
+		})
+		rm.metrics.RecordAPICall("GET_TAGS", "ListTags", err)
+		if err != nil {
+			return nil, err
+		}
+		if tagsResp.Tags != nil {
+			ko.Spec.Tags = aws.StringMap(tagsResp.Tags)
+		} else {
+			ko.Spec.Tags = nil
+		}
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -255,7 +272,7 @@ func (rm *resourceManager) sdkUpdate(
 	latest *resource,
 	delta *ackcompare.Delta,
 ) (*resource, error) {
-	return nil, ackerr.NewTerminalError(ackerr.NotImplemented)
+	return rm.customUpdateBackupVault(ctx, desired, latest, delta)
 }
 
 // sdkDelete deletes the supplied resource in the backend AWS service API
