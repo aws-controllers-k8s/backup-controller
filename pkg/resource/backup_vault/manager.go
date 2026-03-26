@@ -268,14 +268,6 @@ func (rm *resourceManager) IsSynced(ctx context.Context, res acktypes.AWSResourc
 		panic("resource manager's IsSynced() method received resource with nil CR object")
 	}
 
-	if r.ko.Status.VaultState == nil {
-		return false, nil
-	}
-	vaultStateCandidates := []string{"AVAILABLE"}
-	if !ackutil.InStrings(*r.ko.Status.VaultState, vaultStateCandidates) {
-		return false, nil
-	}
-
 	return true, nil
 }
 

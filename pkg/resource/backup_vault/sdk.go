@@ -137,11 +137,6 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.MinRetentionDays = nil
 	}
 	ko.Status.NumberOfRecoveryPoints = &resp.NumberOfRecoveryPoints
-	if resp.VaultState != "" {
-		ko.Status.VaultState = aws.String(string(resp.VaultState))
-	} else {
-		ko.Status.VaultState = nil
-	}
 	if resp.VaultType != "" {
 		ko.Status.VaultType = aws.String(string(resp.VaultType))
 	} else {

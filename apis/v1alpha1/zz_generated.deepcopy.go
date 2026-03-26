@@ -228,11 +228,6 @@ func (in *BackupVaultStatus) DeepCopyInto(out *BackupVaultStatus) {
 		*out = new(int64)
 		**out = **in
 	}
-	if in.VaultState != nil {
-		in, out := &in.VaultState, &out.VaultState
-		*out = new(string)
-		**out = **in
-	}
 	if in.VaultType != nil {
 		in, out := &in.VaultType, &out.VaultType
 		*out = new(string)

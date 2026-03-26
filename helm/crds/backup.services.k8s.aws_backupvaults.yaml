@@ -223,9 +223,6 @@ spec:
                   API to obtain the exact count.
                 format: int64
                 type: integer
-              vaultState:
-                description: The current state of the vault.->
-                type: string
               vaultType:
                 description: The type of vault described.
                 type: string

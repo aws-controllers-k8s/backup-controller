@@ -114,9 +114,6 @@ type BackupVaultStatus struct {
 	// API to obtain the exact count.
 	// +kubebuilder:validation:Optional
 	NumberOfRecoveryPoints *int64 `json:"numberOfRecoveryPoints,omitempty"`
-	// The current state of the vault.->
-	// +kubebuilder:validation:Optional
-	VaultState *string `json:"vaultState,omitempty"`
 	// The type of vault described.
 	// +kubebuilder:validation:Optional
 	VaultType *string `json:"vaultType,omitempty"`

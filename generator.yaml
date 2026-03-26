@@ -58,21 +58,14 @@ resources:
         from:
           operation: DescribeBackupVault
           path: NumberOfRecoveryPoints
-      VaultState:
-        is_read_only: true
-        from:
-          operation: DescribeBackupVault
-          path: VaultState
+      # NOTE: VaultState is intentionally excluded. The DescribeBackupVault
+      # API only returns it for logically air-gapped vaults (which are in the
+      # ignore list). For standard BACKUP_VAULT types it is always empty.
       VaultType:
         is_read_only: true
         from:
           operation: DescribeBackupVault
           path: VaultType
-    synced:
-      when:
-        - path: Status.VaultState
-          in:
-            - AVAILABLE
     # There is no UpdateBackupVault API. Fields must be updated via separate APIs.
     update_operation:
       custom_method_name: customUpdateBackupVault
