@@ -21,6 +21,7 @@ import logging
 from acktest.resources import random_suffix_name
 from acktest.k8s import resource as k8s
 from acktest.k8s import condition
+from acktest import tags
 from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_backup_resource
 from e2e.replacement_values import REPLACEMENT_VALUES
 
@@ -30,27 +31,40 @@ CREATE_WAIT_AFTER_SECONDS = 10
 UPDATE_WAIT_AFTER_SECONDS = 10
 DELETE_WAIT_AFTER_SECONDS = 10
 
+INITIAL_TAGS = {
+    "environment": "testing",
+    "team": "ack-dev",
+}
 
-@pytest.fixture(scope="module")
-def simple_backup_vault(backup_client):
-    resource_name = random_suffix_name("ack-test-vault", 32)
 
+def _create_backup_vault(resource_name: str, resource_template: str = "backup_vault",
+                         extra_replacements: dict = {}):
+    """Helper to create a BackupVault CR and return (ref, cr)."""
     replacements = REPLACEMENT_VALUES.copy()
     replacements["VAULT_NAME"] = resource_name
+    replacements.update(extra_replacements)
 
     resource_data = load_backup_resource(
-        "backup_vault",
+        resource_template,
         additional_replacements=replacements,
     )
     logging.debug(resource_data)
 
-    # Create the k8s resource
     ref = k8s.CustomResourceReference(
         CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
         resource_name, namespace="default",
     )
     k8s.create_custom_resource(ref, resource_data)
     cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    return (ref, cr)
+
+
+@pytest.fixture(scope="module")
+def simple_backup_vault(backup_client):
+    resource_name = random_suffix_name("ack-test-vault", 32)
+
+    (ref, cr) = _create_backup_vault(resource_name)
 
     assert cr is not None
     assert k8s.get_resource_exists(ref)
@@ -82,21 +96,7 @@ def simple_backup_vault(backup_client):
 def backup_vault_with_tags(backup_client):
     resource_name = random_suffix_name("ack-test-vault-tags", 32)
 
-    replacements = REPLACEMENT_VALUES.copy()
-    replacements["VAULT_NAME"] = resource_name
-
-    resource_data = load_backup_resource(
-        "backup_vault_tags",
-        additional_replacements=replacements,
-    )
-    logging.debug(resource_data)
-
-    ref = k8s.CustomResourceReference(
-        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
-        resource_name, namespace="default",
-    )
-    k8s.create_custom_resource(ref, resource_data)
-    cr = k8s.wait_resource_consumed_by_controller(ref)
+    (ref, cr) = _create_backup_vault(resource_name, resource_template="backup_vault_tags")
 
     assert cr is not None
     assert k8s.get_resource_exists(ref)
@@ -115,21 +115,7 @@ def backup_vault_with_tags(backup_client):
 def backup_vault_with_kms(backup_client):
     resource_name = random_suffix_name("ack-test-vault-kms", 32)
 
-    replacements = REPLACEMENT_VALUES.copy()
-    replacements["VAULT_NAME"] = resource_name
-
-    resource_data = load_backup_resource(
-        "backup_vault_kms",
-        additional_replacements=replacements,
-    )
-    logging.debug(resource_data)
-
-    ref = k8s.CustomResourceReference(
-        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
-        resource_name, namespace="default",
-    )
-    k8s.create_custom_resource(ref, resource_data)
-    cr = k8s.wait_resource_consumed_by_controller(ref)
+    (ref, cr) = _create_backup_vault(resource_name, resource_template="backup_vault_kms")
 
     assert cr is not None
     assert k8s.get_resource_exists(ref)
@@ -188,8 +174,8 @@ class TestBackupVault:
         )
         aws_tags = tags_response.get("Tags", {})
 
-        assert aws_tags.get("environment") == "testing"
-        assert aws_tags.get("team") == "ack-dev"
+        tags.assert_ack_system_tags(tags=aws_tags)
+        tags.assert_equal_without_ack_tags(expected=INITIAL_TAGS, actual=aws_tags)
 
         # Verify k8s resource spec tags match
         cr = k8s.get_resource(ref)
@@ -221,8 +207,8 @@ class TestBackupVault:
         assert cr["status"].get("creationDate") is not None
         assert cr["spec"].get("encryptionKeyARN") == expected_kms_arn
 
-    def test_update_tags(self, backup_client, simple_backup_vault):
-        """Test adding and updating tags on an existing vault."""
+    def test_crud_tags(self, backup_client, simple_backup_vault):
+        """Test full CRUD lifecycle for tags: add, update, remove key, remove all."""
         (ref, cr) = simple_backup_vault
 
         assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
@@ -235,47 +221,67 @@ class TestBackupVault:
         )
         vault_arn = response["BackupVaultArn"]
 
-        # Update tags
-        updates = {
-            "spec": {
-                "tags": {
-                    "ManagedBy": "ACK",
-                    "environment": "testing",
-                    "new-tag": "new-value",
-                }
-            }
-        }
+        # Test 1: Verify initial tags from creation
+        tags_response = backup_client.list_tags(ResourceArn=vault_arn)
+        initial_tags = tags_response.get("Tags", {})
 
-        k8s.patch_custom_resource(ref, updates)
+        tags.assert_ack_system_tags(tags=initial_tags)
+        tags.assert_equal_without_ack_tags(
+            expected={"ManagedBy": "ACK"},
+            actual=initial_tags,
+        )
+
+        # Test 2: Update tags via replace to set exact desired state.
+        # We use replace (not patch) because Kubernetes merge patch on a
+        # map only adds/updates keys — it never removes missing keys.
+        updated_tags = {"environment": "testing", "new-tag": "new-value"}
+        cr = k8s.get_resource(ref)
+        cr["spec"]["tags"] = updated_tags
+        k8s.replace_custom_resource(ref, cr)
         time.sleep(UPDATE_WAIT_AFTER_SECONDS)
 
         assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
 
-        # Verify updated tags in AWS
         tags_response = backup_client.list_tags(ResourceArn=vault_arn)
-        aws_tags = tags_response.get("Tags", {})
+        latest_tags = tags_response.get("Tags", {})
 
-        assert aws_tags.get("environment") == "testing"
-        assert aws_tags.get("new-tag") == "new-value"
+        tags.assert_ack_system_tags(tags=latest_tags)
+        tags.assert_equal_without_ack_tags(expected=updated_tags, actual=latest_tags)
+
+        # Test 3: Remove a tag key via replace
+        updated_tags = {"environment": "production"}
+        cr = k8s.get_resource(ref)
+        cr["spec"]["tags"] = updated_tags
+        k8s.replace_custom_resource(ref, cr)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+
+        tags_response = backup_client.list_tags(ResourceArn=vault_arn)
+        latest_tags = tags_response.get("Tags", {})
+
+        tags.assert_ack_system_tags(tags=latest_tags)
+        tags.assert_equal_without_ack_tags(expected=updated_tags, actual=latest_tags)
+
+        # Test 4: Remove all user tags
+        cr = k8s.get_resource(ref)
+        cr["spec"]["tags"] = {}
+        k8s.replace_custom_resource(ref, cr)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        assert k8s.wait_on_condition(ref, "ACK.ResourceSynced", "True", wait_periods=5)
+
+        tags_response = backup_client.list_tags(ResourceArn=vault_arn)
+        latest_tags = tags_response.get("Tags", {})
+
+        tags.assert_ack_system_tags(tags=latest_tags)
+        tags.assert_equal_without_ack_tags(expected={}, actual=latest_tags)
 
     def test_terminal_condition_invalid_encryption_key(self, backup_client):
         """Test that an invalid encryption key ARN results in a terminal condition."""
         resource_name = random_suffix_name("ack-test-vault-inv", 32)
 
-        replacements = REPLACEMENT_VALUES.copy()
-        replacements["VAULT_NAME"] = resource_name
-
-        resource_data = load_backup_resource(
-            "backup_vault_invalid",
-            additional_replacements=replacements,
-        )
-
-        ref = k8s.CustomResourceReference(
-            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
-            resource_name, namespace="default",
-        )
-        k8s.create_custom_resource(ref, resource_data)
-        cr = k8s.wait_resource_consumed_by_controller(ref)
+        (ref, cr) = _create_backup_vault(resource_name, resource_template="backup_vault_invalid")
 
         assert cr is not None
 
@@ -308,20 +314,7 @@ class TestBackupVault:
         """Test that deleting the K8s resource deletes the AWS BackupVault."""
         resource_name = random_suffix_name("ack-test-vault-del", 32)
 
-        replacements = REPLACEMENT_VALUES.copy()
-        replacements["VAULT_NAME"] = resource_name
-
-        resource_data = load_backup_resource(
-            "backup_vault",
-            additional_replacements=replacements,
-        )
-
-        ref = k8s.CustomResourceReference(
-            CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
-            resource_name, namespace="default",
-        )
-        k8s.create_custom_resource(ref, resource_data)
-        cr = k8s.wait_resource_consumed_by_controller(ref)
+        (ref, cr) = _create_backup_vault(resource_name)
 
         assert cr is not None
 
