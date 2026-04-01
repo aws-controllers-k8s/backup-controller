@@ -237,6 +237,10 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	if err := rm.listTags(ctx, ko); err != nil {
+		return nil, err
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -282,6 +286,11 @@ func (rm *resourceManager) sdkCreate(
 	input, err := rm.newCreateRequestPayload(ctx, desired)
 	if err != nil {
 		return nil, err
+	}
+	// BackupPlanTags is outside the input_wrapper_field_path (BackupPlan).
+	// Wire Spec.Tags into the SDK input manually.
+	if desired.ko.Spec.Tags != nil {
+		input.BackupPlanTags = aws.ToStringMap(desired.ko.Spec.Tags)
 	}
 
 	var resp *svcsdk.CreateBackupPlanOutput
@@ -502,6 +511,14 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
+	if err := rm.syncTags(ctx, desired, latest, delta); err != nil {
+		return nil, err
+	}
+	// If only tags changed, no need to call UpdateBackupPlan.
+	if !delta.DifferentExcept("Spec.Tags") {
+		return desired, nil
+	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err
