@@ -36,6 +36,7 @@ import (
 
 	svcapitypes "github.com/aws-controllers-k8s/backup-controller/apis/v1alpha1"
 	access_policy "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/access_policy"
+	lock_configuration "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/lock_configuration"
 	notifications "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/notifications"
 )
 
@@ -51,8 +52,9 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
-	_ = notifications.NewManager
 	_ = access_policy.NewManager
+	_ = lock_configuration.NewManager
+	_ = notifications.NewManager
 	_ = &aws.Config{}
 )
 
@@ -169,6 +171,10 @@ func (rm *resourceManager) sdkFind(
 	if err := mgr_access_policy.Get(ctx, ko); err != nil {
 		return nil, err
 	}
+	mgr_lock_configuration := lock_configuration.NewManager(rm.sdkapi, rm.metrics)
+	if err := mgr_lock_configuration.Get(ctx, ko); err != nil {
+		return nil, err
+	}
 	mgr_notifications := notifications.NewManager(rm.sdkapi, rm.metrics)
 	if err := mgr_notifications.Get(ctx, ko); err != nil {
 		return nil, err
@@ -256,6 +262,9 @@ func (rm *resourceManager) sdkCreate(
 	if desired.ko.Spec.AccessPolicy != nil {
 		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, nil, nil)
 	}
+	if desired.ko.Spec.LockConfiguration != nil {
+		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, nil, nil)
+	}
 	if desired.ko.Spec.Notifications != nil {
 		ackcondition.SetSynced(&resource{ko}, corev1.ConditionFalse, nil, nil)
 	}
@@ -298,9 +307,9 @@ func (rm *resourceManager) sdkUpdate(
 	}()
 
 	// Sync sub-resource managers for fields managed by separate API operations.
-	if delta.DifferentAt("Spec.AccessPolicy") {
-		mgr_access_policy := access_policy.NewManager(rm.sdkapi, rm.metrics)
-		if err = mgr_access_policy.Sync(ctx, desired.ko, latest.ko); err != nil {
+	if delta.DifferentAt("Spec.LockConfiguration") {
+		mgr_lock_configuration := lock_configuration.NewManager(rm.sdkapi, rm.metrics)
+		if err = mgr_lock_configuration.Sync(ctx, desired.ko, latest.ko); err != nil {
 			return nil, err
 		}
 	}
@@ -310,7 +319,13 @@ func (rm *resourceManager) sdkUpdate(
 			return nil, err
 		}
 	}
-	if !delta.DifferentExcept("Spec.AccessPolicy", "Spec.Notifications") {
+	if delta.DifferentAt("Spec.AccessPolicy") {
+		mgr_access_policy := access_policy.NewManager(rm.sdkapi, rm.metrics)
+		if err = mgr_access_policy.Sync(ctx, desired.ko, latest.ko); err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.LockConfiguration", "Spec.Notifications", "Spec.AccessPolicy") {
 		return desired, nil
 	}
 	return rm.customUpdateBackupVault(ctx, desired, latest, delta)
@@ -332,9 +347,14 @@ func (rm *resourceManager) sdkDelete(
 	// items are deleted.
 	koCopy := r.ko.DeepCopy()
 	koCopy.Spec.AccessPolicy = nil
+	koCopy.Spec.LockConfiguration = nil
 	koCopy.Spec.Notifications = nil
 	mgr_access_policy := access_policy.NewManager(rm.sdkapi, rm.metrics)
 	if err = mgr_access_policy.Sync(ctx, koCopy, r.ko); err != nil {
+		return nil, err
+	}
+	mgr_lock_configuration := lock_configuration.NewManager(rm.sdkapi, rm.metrics)
+	if err = mgr_lock_configuration.Sync(ctx, koCopy, r.ko); err != nil {
 		return nil, err
 	}
 	mgr_notifications := notifications.NewManager(rm.sdkapi, rm.metrics)

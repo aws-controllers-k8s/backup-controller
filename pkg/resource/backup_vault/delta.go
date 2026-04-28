@@ -19,6 +19,7 @@ import (
 	"bytes"
 
 	access_policy "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/access_policy"
+	lock_configuration "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/lock_configuration"
 	notifications "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/notifications"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
@@ -60,6 +61,13 @@ func newResourceDelta(
 	}
 	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.EncryptionKeyRef, b.ko.Spec.EncryptionKeyRef) {
 		delta.Add("Spec.EncryptionKeyRef", a.ko.Spec.EncryptionKeyRef, b.ko.Spec.EncryptionKeyRef)
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration) {
+		delta.Add("Spec.LockConfiguration", a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration)
+	} else if a.ko.Spec.LockConfiguration != nil && b.ko.Spec.LockConfiguration != nil {
+		if len(lock_configuration.NewSpecDelta(a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration).Differences) > 0 {
+			delta.Add("Spec.LockConfiguration", a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration)
+		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)

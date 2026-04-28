@@ -31,6 +31,15 @@ operations:
   GetBackupVaultNotifications:
     resource_name: Notifications
     operation_type: get
+  # BackupVault.LockConfiguration sub-resource operations.
+  # There is no GetBackupVaultLockConfiguration — lock state is read from
+  # DescribeBackupVault via a custom find_operation.
+  PutBackupVaultLockConfiguration:
+    resource_name: LockConfiguration
+    operation_type: create
+  DeleteBackupVaultLockConfiguration:
+    resource_name: LockConfiguration
+    operation_type: delete
 
 ignore:
   resource_names:
@@ -138,6 +147,26 @@ resources:
           # the parent field instead of stalling the reconcile.
           sdk_read_one_post_request:
             template_path: hooks/backup_vault_notifications/sdk_read_one_post_request.go.tpl
+      # LockConfiguration — vault lock settings managed via
+      # Put/DeleteBackupVaultLockConfiguration. A singleton sub-resource.
+      # There is no dedicated Get operation; lock state is read from
+      # DescribeBackupVault via a custom find_operation.
+      LockConfiguration:
+        tags:
+          ignore: true
+        fields:
+          BackupVaultName:
+            go_tag: json:"-"
+            is_primary_key: true
+            compare:
+              is_ignored: true
+          # ChangeableForDays is write-only — not returned by DescribeBackupVault.
+          # Mark it ignored in compare so it doesn't cause perpetual drift.
+          ChangeableForDays:
+            compare:
+              is_ignored: true
+        find_operation:
+          custom_method_name: customFindLockConfiguration
     # There is no UpdateBackupVault API. Fields must be updated via separate APIs.
     update_operation:
       custom_method_name: customUpdateBackupVault

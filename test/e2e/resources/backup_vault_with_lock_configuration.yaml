@@ -1,0 +1,10 @@
+apiVersion: backup.services.k8s.aws/v1alpha1
+kind: BackupVault
+metadata:
+  name: $VAULT_NAME
+spec:
+  name: $VAULT_NAME
+  lockConfiguration:
+    minRetentionDays: 1
+    maxRetentionDays: 365
+    changeableForDays: 30
