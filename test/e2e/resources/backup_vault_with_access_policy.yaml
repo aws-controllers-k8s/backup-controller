@@ -1,0 +1,24 @@
+apiVersion: backup.services.k8s.aws/v1alpha1
+kind: BackupVault
+metadata:
+  name: $VAULT_NAME
+spec:
+  name: $VAULT_NAME
+  tags:
+    ManagedBy: ACK
+  accessPolicy:
+    policy: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "DenyDeleteRecoveryPoint",
+            "Effect": "Deny",
+            "Principal": {
+              "AWS": "$ACCOUNT_ID"
+            },
+            "Action": "backup:DeleteRecoveryPoint",
+            "Resource": "*"
+          }
+        ]
+      }
