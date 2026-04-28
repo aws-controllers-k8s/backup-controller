@@ -22,7 +22,7 @@ import (
 
 // BackupVaultSpec defines the desired state of BackupVault.
 type BackupVaultSpec struct {
-
+	AccessPolicy *AccessPolicySpec `json:"accessPolicy,omitempty"`
 	// The server-side encryption key that is used to protect your backups; for
 	// example, arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
@@ -36,7 +36,8 @@ type BackupVaultSpec struct {
 	// Regex Pattern: `^[a-zA-Z0-9\-\_]{2,50}$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
-	Name *string `json:"name"`
+	Name          *string            `json:"name"`
+	Notifications *NotificationsSpec `json:"notifications,omitempty"`
 	// The tags to assign to the backup vault.
 	Tags map[string]*string `json:"tags,omitempty"`
 }

@@ -9,6 +9,28 @@ operations:
     input_wrapper_field_path: BackupSelection
   GetBackupSelection:
     output_wrapper_field_path: BackupSelection
+  # BackupVault.AccessPolicy sub-resource operations. Binding these lets
+  # the generator route their input/output through the sub-resource CRD
+  # (BackupVaultAccessPolicy) rather than tying them to the parent.
+  PutBackupVaultAccessPolicy:
+    resource_name: AccessPolicy
+    operation_type: create
+  DeleteBackupVaultAccessPolicy:
+    resource_name: AccessPolicy
+    operation_type: delete
+  GetBackupVaultAccessPolicy:
+    resource_name: AccessPolicy
+    operation_type: get
+  # BackupVault.Notifications sub-resource operations.
+  PutBackupVaultNotifications:
+    resource_name: Notifications
+    operation_type: create
+  DeleteBackupVaultNotifications:
+    resource_name: Notifications
+    operation_type: delete
+  GetBackupVaultNotifications:
+    resource_name: Notifications
+    operation_type: get
 
 ignore:
   resource_names:
@@ -76,6 +98,46 @@ resources:
         from:
           operation: DescribeBackupVault
           path: VaultType
+    sub_resources:
+      AccessPolicy:
+        tags:
+          ignore: true
+        fields:
+          BackupVaultName:
+            go_tag: json:"-"
+            is_primary_key: true
+            compare:
+              is_ignored: true
+        hooks:
+          sdk_read_one_post_request:
+            template_path: hooks/backup_vault_access_policy/sdk_read_one_post_request.go.tpl
+      # Notifications — SNS topic + event list managed via
+      # Put/Delete/GetBackupVaultNotifications. A singleton sub-resource:
+      # exactly one notification config per vault, addressed by BackupVaultName.
+      Notifications:
+        tags:
+          ignore: true
+        fields:
+          BackupVaultName:
+            go_tag: json:"-"
+            is_primary_key: true
+            compare:
+              is_ignored: true
+        renames:
+          operations:
+            PutBackupVaultNotifications:
+              input_fields:
+                BackupVaultEvents: Events
+            GetBackupVaultNotifications:
+              output_fields:
+                BackupVaultEvents: Events
+        hooks:
+          # GetBackupVaultNotifications returns ResourceNotFoundException
+          # both when the vault does not exist and when no notifications
+          # are configured. Translate into ackerr.NotFound so Get() clears
+          # the parent field instead of stalling the reconcile.
+          sdk_read_one_post_request:
+            template_path: hooks/backup_vault_notifications/sdk_read_one_post_request.go.tpl
     # There is no UpdateBackupVault API. Fields must be updated via separate APIs.
     update_operation:
       custom_method_name: customUpdateBackupVault

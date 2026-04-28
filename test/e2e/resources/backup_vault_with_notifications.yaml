@@ -1,0 +1,11 @@
+apiVersion: backup.services.k8s.aws/v1alpha1
+kind: BackupVault
+metadata:
+  name: $VAULT_NAME
+spec:
+  name: $VAULT_NAME
+  notifications:
+    snsTopicARN: $SNS_TOPIC_ARN
+    events:
+      - BACKUP_JOB_STARTED
+      - BACKUP_JOB_COMPLETED

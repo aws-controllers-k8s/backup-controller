@@ -344,6 +344,7 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+
 	return &resource{ko}, nil
 }
 
@@ -765,6 +766,7 @@ func (rm *resourceManager) sdkDelete(
 	defer func() {
 		exit(err)
 	}()
+
 	input, err := rm.newDeleteRequestPayload(r)
 	if err != nil {
 		return nil, err

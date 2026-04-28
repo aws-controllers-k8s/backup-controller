@@ -39,6 +39,13 @@ spec:
           spec:
             description: BackupVaultSpec defines the desired state of BackupVault.
             properties:
+              accessPolicy:
+                description: AccessPolicySpec defines the desired state of AccessPolicy.
+                properties:
+                  policy:
+                    description: The backup vault access policy document in JSON format.
+                    type: string
+                type: object
               encryptionKeyARN:
                 description: |-
                   The server-side encryption key that is used to protect your backups; for
@@ -76,6 +83,26 @@ spec:
                 x-kubernetes-validations:
                 - message: Value is immutable once set
                   rule: self == oldSelf
+              notifications:
+                description: NotificationsSpec defines the desired state of Notifications.
+                properties:
+                  events:
+                    description: |-
+                      An array of events that indicate the status of jobs to back up resources
+                      to the backup vault. For the list of supported events, common use cases,
+                      and code samples, see Notification options with Backup (https://docs.aws.amazon.com/aws-backup/latest/devguide/backup-notifications.html).
+                    items:
+                      type: string
+                    type: array
+                  snsTopicARN:
+                    description: |-
+                      The Amazon Resource Name (ARN) that specifies the topic for a backup vault’s
+                      events; for example, arn:aws:sns:us-west-2:111122223333:MyVaultTopic.
+                    type: string
+                required:
+                - events
+                - snsTopicARN
+                type: object
               tags:
                 additionalProperties:
                   type: string
