@@ -18,6 +18,9 @@ package backup_vault
 import (
 	"bytes"
 
+	access_policy "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/access_policy"
+	lock_configuration "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/lock_configuration"
+	notifications "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault/notifications"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -42,6 +45,13 @@ func newResourceDelta(
 		return delta
 	}
 
+	if ackcompare.HasNilDifference(a.ko.Spec.AccessPolicy, b.ko.Spec.AccessPolicy) {
+		delta.Add("Spec.AccessPolicy", a.ko.Spec.AccessPolicy, b.ko.Spec.AccessPolicy)
+	} else if a.ko.Spec.AccessPolicy != nil && b.ko.Spec.AccessPolicy != nil {
+		if len(access_policy.NewSpecDelta(a.ko.Spec.AccessPolicy, b.ko.Spec.AccessPolicy).Differences) > 0 {
+			delta.Add("Spec.AccessPolicy", a.ko.Spec.AccessPolicy, b.ko.Spec.AccessPolicy)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.EncryptionKeyARN, b.ko.Spec.EncryptionKeyARN) {
 		delta.Add("Spec.EncryptionKeyARN", a.ko.Spec.EncryptionKeyARN, b.ko.Spec.EncryptionKeyARN)
 	} else if a.ko.Spec.EncryptionKeyARN != nil && b.ko.Spec.EncryptionKeyARN != nil {
@@ -52,11 +62,25 @@ func newResourceDelta(
 	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.EncryptionKeyRef, b.ko.Spec.EncryptionKeyRef) {
 		delta.Add("Spec.EncryptionKeyRef", a.ko.Spec.EncryptionKeyRef, b.ko.Spec.EncryptionKeyRef)
 	}
+	if ackcompare.HasNilDifference(a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration) {
+		delta.Add("Spec.LockConfiguration", a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration)
+	} else if a.ko.Spec.LockConfiguration != nil && b.ko.Spec.LockConfiguration != nil {
+		if len(lock_configuration.NewSpecDelta(a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration).Differences) > 0 {
+			delta.Add("Spec.LockConfiguration", a.ko.Spec.LockConfiguration, b.ko.Spec.LockConfiguration)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {
 		if *a.ko.Spec.Name != *b.ko.Spec.Name {
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.Notifications, b.ko.Spec.Notifications) {
+		delta.Add("Spec.Notifications", a.ko.Spec.Notifications, b.ko.Spec.Notifications)
+	} else if a.ko.Spec.Notifications != nil && b.ko.Spec.Notifications != nil {
+		if len(notifications.NewSpecDelta(a.ko.Spec.Notifications, b.ko.Spec.Notifications).Differences) > 0 {
+			delta.Add("Spec.Notifications", a.ko.Spec.Notifications, b.ko.Spec.Notifications)
 		}
 	}
 	desiredACKTags, _ := convertToOrderedACKTags(a.ko.Spec.Tags)

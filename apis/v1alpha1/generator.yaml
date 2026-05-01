@@ -9,6 +9,10 @@ operations:
     input_wrapper_field_path: BackupSelection
   GetBackupSelection:
     output_wrapper_field_path: BackupSelection
+  # BackupVault.LockConfiguration managed field operations.
+  # There is no GetBackupVaultLockConfiguration — lock state is read from
+  # DescribeBackupVault via a custom find_operation. Only Put and Delete
+  # are inferred automatically from the managed fields config.
 
 ignore:
   resource_names:
@@ -76,6 +80,40 @@ resources:
         from:
           operation: DescribeBackupVault
           path: VaultType
+      # Managed fields — each has its own lifecycle via separate API operations.
+      # Operations and primary keys are auto-inferred from the parent.
+      AccessPolicy:
+        manager:
+          hooks:
+            sdk_read_one_post_request:
+              template_path: hooks/backup_vault_access_policy/sdk_read_one_post_request.go.tpl
+      Notifications:
+        manager:
+          renames:
+            operations:
+              PutBackupVaultNotifications:
+                input_fields:
+                  BackupVaultEvents: Events
+              GetBackupVaultNotifications:
+                output_fields:
+                  BackupVaultEvents: Events
+          hooks:
+            sdk_read_one_post_request:
+              template_path: hooks/backup_vault_notifications/sdk_read_one_post_request.go.tpl
+      # LockConfiguration — vault lock settings managed via
+      # Put/DeleteBackupVaultLockConfiguration. A singleton managed field.
+      # There is no dedicated Get operation; lock state is read from
+      # DescribeBackupVault via a custom find_operation.
+      LockConfiguration:
+        manager:
+          fields:
+            # ChangeableForDays is write-only — not returned by DescribeBackupVault.
+            # Mark it ignored in compare so it doesn't cause perpetual drift.
+            ChangeableForDays:
+              compare:
+                is_ignored: true
+          find_operation:
+            custom_method_name: customFindLockConfiguration
     # There is no UpdateBackupVault API. Fields must be updated via separate APIs.
     update_operation:
       custom_method_name: customUpdateBackupVault

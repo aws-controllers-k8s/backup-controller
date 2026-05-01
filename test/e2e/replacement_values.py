@@ -26,10 +26,14 @@ def get_replacement_values():
         kms_key_arn = f"arn:aws:kms:{region}:{account_id}:key/{resources.KmsKey.id}"
         return {
             "KMS_KEY_ARN": kms_key_arn,
+            "ACCOUNT_ID": account_id,
+            "AWS_REGION": region,
         }
     except:
         return {
             "KMS_KEY_ARN": "",
+            "ACCOUNT_ID": "",
+            "AWS_REGION": "us-west-2",
         }
 
 REPLACEMENT_VALUES = get_replacement_values()
