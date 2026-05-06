@@ -42,6 +42,20 @@ func newResourceDelta(
 		return delta
 	}
 
+	if len(a.ko.Spec.BackupVaultEvents) != len(b.ko.Spec.BackupVaultEvents) {
+		delta.Add("Spec.BackupVaultEvents", a.ko.Spec.BackupVaultEvents, b.ko.Spec.BackupVaultEvents)
+	} else if len(a.ko.Spec.BackupVaultEvents) > 0 {
+		if !ackcompare.SliceStringPEqual(a.ko.Spec.BackupVaultEvents, b.ko.Spec.BackupVaultEvents) {
+			delta.Add("Spec.BackupVaultEvents", a.ko.Spec.BackupVaultEvents, b.ko.Spec.BackupVaultEvents)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.ChangeableForDays, b.ko.Spec.ChangeableForDays) {
+		delta.Add("Spec.ChangeableForDays", a.ko.Spec.ChangeableForDays, b.ko.Spec.ChangeableForDays)
+	} else if a.ko.Spec.ChangeableForDays != nil && b.ko.Spec.ChangeableForDays != nil {
+		if *a.ko.Spec.ChangeableForDays != *b.ko.Spec.ChangeableForDays {
+			delta.Add("Spec.ChangeableForDays", a.ko.Spec.ChangeableForDays, b.ko.Spec.ChangeableForDays)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.EncryptionKeyARN, b.ko.Spec.EncryptionKeyARN) {
 		delta.Add("Spec.EncryptionKeyARN", a.ko.Spec.EncryptionKeyARN, b.ko.Spec.EncryptionKeyARN)
 	} else if a.ko.Spec.EncryptionKeyARN != nil && b.ko.Spec.EncryptionKeyARN != nil {
@@ -52,12 +66,43 @@ func newResourceDelta(
 	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.EncryptionKeyRef, b.ko.Spec.EncryptionKeyRef) {
 		delta.Add("Spec.EncryptionKeyRef", a.ko.Spec.EncryptionKeyRef, b.ko.Spec.EncryptionKeyRef)
 	}
+	if ackcompare.HasNilDifference(a.ko.Spec.MaxRetentionDays, b.ko.Spec.MaxRetentionDays) {
+		delta.Add("Spec.MaxRetentionDays", a.ko.Spec.MaxRetentionDays, b.ko.Spec.MaxRetentionDays)
+	} else if a.ko.Spec.MaxRetentionDays != nil && b.ko.Spec.MaxRetentionDays != nil {
+		if *a.ko.Spec.MaxRetentionDays != *b.ko.Spec.MaxRetentionDays {
+			delta.Add("Spec.MaxRetentionDays", a.ko.Spec.MaxRetentionDays, b.ko.Spec.MaxRetentionDays)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.MinRetentionDays, b.ko.Spec.MinRetentionDays) {
+		delta.Add("Spec.MinRetentionDays", a.ko.Spec.MinRetentionDays, b.ko.Spec.MinRetentionDays)
+	} else if a.ko.Spec.MinRetentionDays != nil && b.ko.Spec.MinRetentionDays != nil {
+		if *a.ko.Spec.MinRetentionDays != *b.ko.Spec.MinRetentionDays {
+			delta.Add("Spec.MinRetentionDays", a.ko.Spec.MinRetentionDays, b.ko.Spec.MinRetentionDays)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {
 		if *a.ko.Spec.Name != *b.ko.Spec.Name {
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.Policy, b.ko.Spec.Policy) {
+		delta.Add("Spec.Policy", a.ko.Spec.Policy, b.ko.Spec.Policy)
+	} else if a.ko.Spec.Policy != nil && b.ko.Spec.Policy != nil {
+		if *a.ko.Spec.Policy != *b.ko.Spec.Policy {
+			delta.Add("Spec.Policy", a.ko.Spec.Policy, b.ko.Spec.Policy)
+		}
+	}
+	if ackcompare.HasNilDifference(a.ko.Spec.SNSTopicARN, b.ko.Spec.SNSTopicARN) {
+		delta.Add("Spec.SNSTopicARN", a.ko.Spec.SNSTopicARN, b.ko.Spec.SNSTopicARN)
+	} else if a.ko.Spec.SNSTopicARN != nil && b.ko.Spec.SNSTopicARN != nil {
+		if *a.ko.Spec.SNSTopicARN != *b.ko.Spec.SNSTopicARN {
+			delta.Add("Spec.SNSTopicARN", a.ko.Spec.SNSTopicARN, b.ko.Spec.SNSTopicARN)
+		}
+	}
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.SNSTopicRef, b.ko.Spec.SNSTopicRef) {
+		delta.Add("Spec.SNSTopicRef", a.ko.Spec.SNSTopicRef, b.ko.Spec.SNSTopicRef)
 	}
 	desiredACKTags, _ := convertToOrderedACKTags(a.ko.Spec.Tags)
 	latestACKTags, _ := convertToOrderedACKTags(b.ko.Spec.Tags)

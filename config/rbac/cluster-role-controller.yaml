@@ -84,3 +84,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - sns.services.k8s.aws
+  resources:
+  - topics
+  - topics/status
+  verbs:
+  - get
+  - list

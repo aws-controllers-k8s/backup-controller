@@ -53,16 +53,6 @@ resources:
         from:
           operation: DescribeBackupVault
           path: Locked
-      MaxRetentionDays:
-        is_read_only: true
-        from:
-          operation: DescribeBackupVault
-          path: MaxRetentionDays
-      MinRetentionDays:
-        is_read_only: true
-        from:
-          operation: DescribeBackupVault
-          path: MinRetentionDays
       NumberOfRecoveryPoints:
         is_read_only: true
         from:
@@ -76,9 +66,50 @@ resources:
         from:
           operation: DescribeBackupVault
           path: VaultType
-    # There is no UpdateBackupVault API. Fields must be updated via separate APIs.
-    update_operation:
-      custom_method_name: customUpdateBackupVault
+      # Lock configuration fields — settable via PutBackupVaultLockConfiguration,
+      # also returned by DescribeBackupVault.
+      MinRetentionDays:
+        from:
+          operation: PutBackupVaultLockConfiguration
+          path: MinRetentionDays
+      MaxRetentionDays:
+        from:
+          operation: PutBackupVaultLockConfiguration
+          path: MaxRetentionDays
+      ChangeableForDays:
+        from:
+          operation: PutBackupVaultLockConfiguration
+          path: ChangeableForDays
+      # Access policy field — settable via PutBackupVaultAccessPolicy,
+      # readable via GetBackupVaultAccessPolicy.
+      Policy:
+        from:
+          operation: PutBackupVaultAccessPolicy
+          path: Policy
+      # Notification fields — settable via PutBackupVaultNotifications,
+      # readable via GetBackupVaultNotifications.
+      SNSTopicARN:
+        from:
+          operation: PutBackupVaultNotifications
+          path: SNSTopicArn
+        references:
+          resource: Topic
+          service_name: sns
+          path: Status.ACKResourceMetadata.ARN
+      BackupVaultEvents:
+        from:
+          operation: PutBackupVaultNotifications
+          path: BackupVaultEvents
+    update_operations:
+      - operation_id: PutBackupVaultAccessPolicy
+        requeue_on_success: true
+      - operation_id: PutBackupVaultLockConfiguration
+        requeue_on_success: true
+      - operation_id: PutBackupVaultNotifications
+        requeue_on_success: true
+    read_operations:
+      - operation_id: GetBackupVaultAccessPolicy
+      - operation_id: GetBackupVaultNotifications
     hooks:
       sdk_read_one_post_set_output:
         template_path: hooks/backup_vault/sdk_read_one_post_set_output.go.tpl
@@ -95,6 +126,21 @@ resources:
           input_fields:
             BackupVaultName: Name
           output_fields:
+            BackupVaultName: Name
+        PutBackupVaultAccessPolicy:
+          input_fields:
+            BackupVaultName: Name
+        PutBackupVaultLockConfiguration:
+          input_fields:
+            BackupVaultName: Name
+        PutBackupVaultNotifications:
+          input_fields:
+            BackupVaultName: Name
+        GetBackupVaultAccessPolicy:
+          input_fields:
+            BackupVaultName: Name
+        GetBackupVaultNotifications:
+          input_fields:
             BackupVaultName: Name
     exceptions:
       errors:

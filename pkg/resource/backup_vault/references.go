@@ -27,12 +27,16 @@ import (
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	acktypes "github.com/aws-controllers-k8s/runtime/pkg/types"
+	snsapitypes "github.com/aws-controllers-k8s/sns-controller/apis/v1alpha1"
 
 	svcapitypes "github.com/aws-controllers-k8s/backup-controller/apis/v1alpha1"
 )
 
 // +kubebuilder:rbac:groups=kms.services.k8s.aws,resources=keys,verbs=get;list
 // +kubebuilder:rbac:groups=kms.services.k8s.aws,resources=keys/status,verbs=get;list
+
+// +kubebuilder:rbac:groups=sns.services.k8s.aws,resources=topics,verbs=get;list
+// +kubebuilder:rbac:groups=sns.services.k8s.aws,resources=topics/status,verbs=get;list
 
 // ClearResolvedReferences removes any reference values that were made
 // concrete in the spec. It returns a copy of the input AWSResource which
@@ -43,6 +47,10 @@ func (rm *resourceManager) ClearResolvedReferences(res acktypes.AWSResource) ack
 
 	if ko.Spec.EncryptionKeyRef != nil {
 		ko.Spec.EncryptionKeyARN = nil
+	}
+
+	if ko.Spec.SNSTopicRef != nil {
+		ko.Spec.SNSTopicARN = nil
 	}
 
 	return &resource{ko}
@@ -70,6 +78,12 @@ func (rm *resourceManager) ResolveReferences(
 		resourceHasReferences = resourceHasReferences || fieldHasReferences
 	}
 
+	if fieldHasReferences, err := rm.resolveReferenceForSNSTopicARN(ctx, apiReader, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
 	return &resource{ko}, resourceHasReferences, err
 }
 
@@ -79,6 +93,10 @@ func validateReferenceFields(ko *svcapitypes.BackupVault) error {
 
 	if ko.Spec.EncryptionKeyRef != nil && ko.Spec.EncryptionKeyARN != nil {
 		return ackerr.ResourceReferenceAndIDNotSupportedFor("EncryptionKeyARN", "EncryptionKeyRef")
+	}
+
+	if ko.Spec.SNSTopicRef != nil && ko.Spec.SNSTopicARN != nil {
+		return ackerr.ResourceReferenceAndIDNotSupportedFor("SNSTopicARN", "SNSTopicRef")
 	}
 	return nil
 }
@@ -160,6 +178,89 @@ func getReferencedResourceState_Key(
 	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
 		return ackerr.ResourceReferenceMissingTargetFieldFor(
 			"Key",
+			namespace, name,
+			"Status.ACKResourceMetadata.ARN")
+	}
+	return nil
+}
+
+// resolveReferenceForSNSTopicARN reads the resource referenced
+// from SNSTopicRef field and sets the SNSTopicARN
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForSNSTopicARN(
+	ctx context.Context,
+	apiReader client.Reader,
+	ko *svcapitypes.BackupVault,
+) (hasReferences bool, err error) {
+	if ko.Spec.SNSTopicRef != nil && ko.Spec.SNSTopicRef.From != nil {
+		hasReferences = true
+		arr := ko.Spec.SNSTopicRef.From
+		if arr.Name == nil || *arr.Name == "" {
+			return hasReferences, fmt.Errorf("provided resource reference is nil or empty: SNSTopicRef")
+		}
+		namespace := ko.ObjectMeta.GetNamespace()
+		if arr.Namespace != nil && *arr.Namespace != "" {
+			namespace = *arr.Namespace
+		}
+		obj := &snsapitypes.Topic{}
+		if err := getReferencedResourceState_Topic(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+			return hasReferences, err
+		}
+		ko.Spec.SNSTopicARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+	}
+
+	return hasReferences, nil
+}
+
+// getReferencedResourceState_Topic looks up whether a referenced resource
+// exists and is in a ACK.ResourceSynced=True state. If the referenced resource does exist and is
+// in a Synced state, returns nil, otherwise returns `ackerr.ResourceReferenceTerminalFor` or
+// `ResourceReferenceNotSyncedFor` depending on if the resource is in a Terminal state.
+func getReferencedResourceState_Topic(
+	ctx context.Context,
+	apiReader client.Reader,
+	obj *snsapitypes.Topic,
+	name string, // the Kubernetes name of the referenced resource
+	namespace string, // the Kubernetes namespace of the referenced resource
+) error {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := apiReader.Get(ctx, namespacedName, obj)
+	if err != nil {
+		return err
+	}
+	var refResourceTerminal bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
+			cond.Status == corev1.ConditionTrue {
+			return ackerr.ResourceReferenceTerminalFor(
+				"Topic",
+				namespace, name)
+		}
+	}
+	if refResourceTerminal {
+		return ackerr.ResourceReferenceTerminalFor(
+			"Topic",
+			namespace, name)
+	}
+	var refResourceSynced bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+			cond.Status == corev1.ConditionTrue {
+			refResourceSynced = true
+		}
+	}
+	if !refResourceSynced {
+		return ackerr.ResourceReferenceNotSyncedFor(
+			"Topic",
+			namespace, name)
+	}
+	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+		return ackerr.ResourceReferenceMissingTargetFieldFor(
+			"Topic",
 			namespace, name,
 			"Status.ACKResourceMetadata.ARN")
 	}

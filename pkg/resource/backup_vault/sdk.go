@@ -30,6 +30,7 @@ import (
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/backup"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/backup/types"
 	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -127,14 +128,14 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.Locked = nil
 	}
 	if resp.MaxRetentionDays != nil {
-		ko.Status.MaxRetentionDays = resp.MaxRetentionDays
+		ko.Spec.MaxRetentionDays = resp.MaxRetentionDays
 	} else {
-		ko.Status.MaxRetentionDays = nil
+		ko.Spec.MaxRetentionDays = nil
 	}
 	if resp.MinRetentionDays != nil {
-		ko.Status.MinRetentionDays = resp.MinRetentionDays
+		ko.Spec.MinRetentionDays = resp.MinRetentionDays
 	} else {
-		ko.Status.MinRetentionDays = nil
+		ko.Spec.MinRetentionDays = nil
 	}
 	ko.Status.NumberOfRecoveryPoints = &resp.NumberOfRecoveryPoints
 	if resp.VaultType != "" {
@@ -235,7 +236,7 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
-	return &resource{ko}, nil
+	return &resource{ko}, ackrequeue.NeededAfter(nil, 0)
 }
 
 // newCreateRequestPayload returns an SDK-specific struct for the HTTP request
@@ -266,8 +267,166 @@ func (rm *resourceManager) sdkUpdate(
 	desired *resource,
 	latest *resource,
 	delta *ackcompare.Delta,
-) (*resource, error) {
-	return rm.customUpdateBackupVault(ctx, desired, latest, delta)
+) (updated *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.sdkUpdate")
+	defer func() {
+		exit(err)
+	}()
+
+	ko := desired.ko.DeepCopy()
+	rm.setStatusDefaults(ko)
+
+	var requeueNeeded bool
+
+	if delta.DifferentAt("Spec.Policy") {
+		ko, err = rm.sdkUpdatePutBackupVaultAccessPolicy(ctx, desired, ko)
+		if err != nil {
+			return nil, err
+		}
+		requeueNeeded = true
+	}
+
+	if delta.DifferentAt("Spec.ChangeableForDays") || delta.DifferentAt("Spec.MaxRetentionDays") || delta.DifferentAt("Spec.MinRetentionDays") {
+		ko, err = rm.sdkUpdatePutBackupVaultLockConfiguration(ctx, desired, ko)
+		if err != nil {
+			return nil, err
+		}
+		requeueNeeded = true
+	}
+
+	if delta.DifferentAt("Spec.BackupVaultEvents") {
+		ko, err = rm.sdkUpdatePutBackupVaultNotifications(ctx, desired, ko)
+		if err != nil {
+			return nil, err
+		}
+		requeueNeeded = true
+	}
+
+	if requeueNeeded {
+		return &resource{ko}, ackrequeue.NeededAfter(nil, 0)
+	}
+	return &resource{ko}, nil
+}
+
+func (rm *resourceManager) sdkUpdatePutBackupVaultAccessPolicy(
+	ctx context.Context,
+	desired *resource,
+	ko *svcapitypes.BackupVault,
+) (*svcapitypes.BackupVault, error) {
+	input, err := rm.newPutBackupVaultAccessPolicyPayload(desired)
+	if err != nil {
+		return ko, err
+	}
+
+	var resp *svcsdk.PutBackupVaultAccessPolicyOutput
+	_ = resp
+	resp, err = rm.sdkapi.PutBackupVaultAccessPolicy(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "PutBackupVaultAccessPolicy", err)
+	if err != nil {
+		return ko, err
+	}
+
+	return ko, nil
+}
+
+func (rm *resourceManager) newPutBackupVaultAccessPolicyPayload(
+	r *resource,
+) (*svcsdk.PutBackupVaultAccessPolicyInput, error) {
+	res := &svcsdk.PutBackupVaultAccessPolicyInput{}
+
+	if r.ko.Spec.Name != nil {
+		res.BackupVaultName = r.ko.Spec.Name
+	}
+	if r.ko.Spec.Policy != nil {
+		res.Policy = r.ko.Spec.Policy
+	}
+
+	return res, nil
+}
+
+func (rm *resourceManager) sdkUpdatePutBackupVaultLockConfiguration(
+	ctx context.Context,
+	desired *resource,
+	ko *svcapitypes.BackupVault,
+) (*svcapitypes.BackupVault, error) {
+	input, err := rm.newPutBackupVaultLockConfigurationPayload(desired)
+	if err != nil {
+		return ko, err
+	}
+
+	var resp *svcsdk.PutBackupVaultLockConfigurationOutput
+	_ = resp
+	resp, err = rm.sdkapi.PutBackupVaultLockConfiguration(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "PutBackupVaultLockConfiguration", err)
+	if err != nil {
+		return ko, err
+	}
+
+	return ko, nil
+}
+
+func (rm *resourceManager) newPutBackupVaultLockConfigurationPayload(
+	r *resource,
+) (*svcsdk.PutBackupVaultLockConfigurationInput, error) {
+	res := &svcsdk.PutBackupVaultLockConfigurationInput{}
+
+	if r.ko.Spec.Name != nil {
+		res.BackupVaultName = r.ko.Spec.Name
+	}
+	if r.ko.Spec.ChangeableForDays != nil {
+		res.ChangeableForDays = r.ko.Spec.ChangeableForDays
+	}
+	if r.ko.Spec.MaxRetentionDays != nil {
+		res.MaxRetentionDays = r.ko.Spec.MaxRetentionDays
+	}
+	if r.ko.Spec.MinRetentionDays != nil {
+		res.MinRetentionDays = r.ko.Spec.MinRetentionDays
+	}
+
+	return res, nil
+}
+
+func (rm *resourceManager) sdkUpdatePutBackupVaultNotifications(
+	ctx context.Context,
+	desired *resource,
+	ko *svcapitypes.BackupVault,
+) (*svcapitypes.BackupVault, error) {
+	input, err := rm.newPutBackupVaultNotificationsPayload(desired)
+	if err != nil {
+		return ko, err
+	}
+
+	var resp *svcsdk.PutBackupVaultNotificationsOutput
+	_ = resp
+	resp, err = rm.sdkapi.PutBackupVaultNotifications(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "PutBackupVaultNotifications", err)
+	if err != nil {
+		return ko, err
+	}
+
+	return ko, nil
+}
+
+func (rm *resourceManager) newPutBackupVaultNotificationsPayload(
+	r *resource,
+) (*svcsdk.PutBackupVaultNotificationsInput, error) {
+	res := &svcsdk.PutBackupVaultNotificationsInput{}
+
+	if r.ko.Spec.BackupVaultEvents != nil {
+		f0 := []svcsdktypes.BackupVaultEvent{}
+		for _, f0iter := range r.ko.Spec.BackupVaultEvents {
+			var f0elem string
+			f0elem = string(*f0iter)
+			f0 = append(f0, svcsdktypes.VaultEvent(f0elem))
+		}
+		res.BackupVaultEvents = f0
+	}
+	if r.ko.Spec.Name != nil {
+		res.BackupVaultName = r.ko.Spec.Name
+	}
+
+	return res, nil
 }
 
 // sdkDelete deletes the supplied resource in the backend AWS service API
@@ -420,4 +579,116 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	default:
 		return false
 	}
+}
+func (rm *resourceManager) sdkFindFieldGroups(
+	ctx context.Context,
+	r *resource,
+	observed *resource,
+) (*resource, error) {
+	ko := observed.ko.DeepCopy()
+	var err error
+
+	ko, err = rm.sdkFindGetBackupVaultAccessPolicy(ctx, r, ko)
+	if err != nil {
+		return &resource{ko}, err
+	}
+
+	ko, err = rm.sdkFindGetBackupVaultNotifications(ctx, r, ko)
+	if err != nil {
+		return &resource{ko}, err
+	}
+
+	return &resource{ko}, nil
+}
+
+func (rm *resourceManager) sdkFindGetBackupVaultAccessPolicy(
+	ctx context.Context,
+	r *resource,
+	ko *svcapitypes.BackupVault,
+) (*svcapitypes.BackupVault, error) {
+	input, err := rm.newGetBackupVaultAccessPolicyInput(r)
+	if err != nil {
+		return ko, err
+	}
+
+	var resp *svcsdk.GetBackupVaultAccessPolicyOutput
+	_ = resp
+	resp, err = rm.sdkapi.GetBackupVaultAccessPolicy(ctx, input)
+	rm.metrics.RecordAPICall("READ_ONE", "GetBackupVaultAccessPolicy", err)
+	if err != nil {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "AccessDeniedException" {
+			return ko, nil
+		}
+		return ko, err
+	}
+
+	if resp.Policy != nil {
+		ko.Spec.Policy = resp.Policy
+	} else {
+		ko.Spec.Policy = nil
+	}
+
+	return ko, nil
+}
+
+func (rm *resourceManager) newGetBackupVaultAccessPolicyInput(
+	r *resource,
+) (*svcsdk.GetBackupVaultAccessPolicyInput, error) {
+	res := &svcsdk.GetBackupVaultAccessPolicyInput{}
+
+	if r.ko.Spec.Name != nil {
+		res.BackupVaultName = r.ko.Spec.Name
+	}
+
+	return res, nil
+}
+
+func (rm *resourceManager) sdkFindGetBackupVaultNotifications(
+	ctx context.Context,
+	r *resource,
+	ko *svcapitypes.BackupVault,
+) (*svcapitypes.BackupVault, error) {
+	input, err := rm.newGetBackupVaultNotificationsInput(r)
+	if err != nil {
+		return ko, err
+	}
+
+	var resp *svcsdk.GetBackupVaultNotificationsOutput
+	_ = resp
+	resp, err = rm.sdkapi.GetBackupVaultNotifications(ctx, input)
+	rm.metrics.RecordAPICall("READ_ONE", "GetBackupVaultNotifications", err)
+	if err != nil {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "AccessDeniedException" {
+			return ko, nil
+		}
+		return ko, err
+	}
+
+	if resp.BackupVaultEvents != nil {
+		f1 := []*string{}
+		for _, f1iter := range resp.BackupVaultEvents {
+			var f1elem *string
+			f1elem = aws.String(string(f1iter))
+			f1 = append(f1, f1elem)
+		}
+		ko.Spec.BackupVaultEvents = f1
+	} else {
+		ko.Spec.BackupVaultEvents = nil
+	}
+
+	return ko, nil
+}
+
+func (rm *resourceManager) newGetBackupVaultNotificationsInput(
+	r *resource,
+) (*svcsdk.GetBackupVaultNotificationsInput, error) {
+	res := &svcsdk.GetBackupVaultNotificationsInput{}
+
+	if r.ko.Spec.Name != nil {
+		res.BackupVaultName = r.ko.Spec.Name
+	}
+
+	return res, nil
 }

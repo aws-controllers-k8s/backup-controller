@@ -109,6 +109,10 @@ func (rm *resourceManager) ReadOne(
 		}
 		return rm.onError(r, err)
 	}
+	observed, err = rm.sdkFindFieldGroups(ctx, r, observed)
+	if err != nil {
+		return rm.onError(observed, err)
+	}
 	return rm.onSuccess(observed)
 }
 

@@ -23,11 +23,70 @@ import (
 // BackupVaultSpec defines the desired state of BackupVault.
 type BackupVaultSpec struct {
 
+	// An array of events that indicate the status of jobs to back up resources
+	// to the backup vault. For the list of supported events, common use cases,
+	// and code samples, see Notification options with Backup (https://docs.aws.amazon.com/aws-backup/latest/devguide/backup-notifications.html).
+	BackupVaultEvents []*string `json:"backupVaultEvents,omitempty"`
+	// The Backup Vault Lock configuration that specifies the number of days before
+	// the lock date. For example, setting ChangeableForDays to 30 on Jan. 1, 2022
+	// at 8pm UTC will set the lock date to Jan. 31, 2022 at 8pm UTC.
+	//
+	// Backup enforces a 72-hour cooling-off period before Vault Lock takes effect
+	// and becomes immutable. Therefore, you must set ChangeableForDays to 3 or
+	// greater.
+	//
+	// The maximum value you can specify is 36,500 days (approximately 100 years).
+	//
+	// Before the lock date, you can delete Vault Lock from the vault using DeleteBackupVaultLockConfiguration
+	// or change the Vault Lock configuration using PutBackupVaultLockConfiguration.
+	// On and after the lock date, the Vault Lock becomes immutable and cannot be
+	// changed or deleted.
+	//
+	// If this parameter is not specified, you can delete Vault Lock from the vault
+	// using DeleteBackupVaultLockConfiguration or change the Vault Lock configuration
+	// using PutBackupVaultLockConfiguration at any time.
+	ChangeableForDays *int64 `json:"changeableForDays,omitempty"`
 	// The server-side encryption key that is used to protect your backups; for
 	// example, arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	EncryptionKeyARN *string                                  `json:"encryptionKeyARN,omitempty"`
 	EncryptionKeyRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"encryptionKeyRef,omitempty"`
+	// The Backup Vault Lock configuration that specifies the maximum retention
+	// period that the vault retains its recovery points. This setting can be useful
+	// if, for example, your organization's policies require you to destroy certain
+	// data after retaining it for four years (1460 days).
+	//
+	// If this parameter is not included, Vault Lock does not enforce a maximum
+	// retention period on the recovery points in the vault. If this parameter is
+	// included without a value, Vault Lock will not enforce a maximum retention
+	// period.
+	//
+	// If this parameter is specified, any backup or copy job to the vault must
+	// have a lifecycle policy with a retention period equal to or shorter than
+	// the maximum retention period. If the job's retention period is longer than
+	// that maximum retention period, then the vault fails the backup or copy job,
+	// and you should either modify your lifecycle settings or use a different vault.
+	// The longest maximum retention period you can specify is 36500 days (approximately
+	// 100 years). Recovery points already saved in the vault prior to Vault Lock
+	// are not affected.
+	MaxRetentionDays *int64 `json:"maxRetentionDays,omitempty"`
+	// The Backup Vault Lock configuration that specifies the minimum retention
+	// period that the vault retains its recovery points. This setting can be useful
+	// if, for example, your organization's policies require you to retain certain
+	// data for at least seven years (2555 days).
+	//
+	// This parameter is required when a vault lock is created through CloudFormation;
+	// otherwise, this parameter is optional. If this parameter is not specified,
+	// Vault Lock will not enforce a minimum retention period.
+	//
+	// If this parameter is specified, any backup or copy job to the vault must
+	// have a lifecycle policy with a retention period equal to or longer than the
+	// minimum retention period. If the job's retention period is shorter than that
+	// minimum retention period, then the vault fails that backup or copy job, and
+	// you should either modify your lifecycle settings or use a different vault.
+	// The shortest minimum retention period you can specify is 1 day. Recovery
+	// points already saved in the vault prior to Vault Lock are not affected.
+	MinRetentionDays *int64 `json:"minRetentionDays,omitempty"`
 	// The name of a logical container where backups are stored. Backup vaults are
 	// identified by names that are unique to the account used to create them and
 	// the Amazon Web Services Region where they are created. They consist of letters,
@@ -37,6 +96,12 @@ type BackupVaultSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
+	// The backup vault access policy document in JSON format.
+	Policy *string `json:"policy,omitempty"`
+	// The Amazon Resource Name (ARN) that specifies the topic for a backup vault’s
+	// events; for example, arn:aws:sns:us-west-2:111122223333:MyVaultTopic.
+	SNSTopicARN *string                                  `json:"snsTopicARN,omitempty"`
+	SNSTopicRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"snsTopicRef,omitempty"`
 	// The tags to assign to the backup vault.
 	Tags map[string]*string `json:"tags,omitempty"`
 }
@@ -82,31 +147,6 @@ type BackupVaultStatus struct {
 	// on the recovery points stored in the vault to fail.
 	// +kubebuilder:validation:Optional
 	Locked *bool `json:"locked,omitempty"`
-	// The Backup Vault Lock setting that specifies the maximum retention period
-	// that the vault retains its recovery points. If this parameter is not specified,
-	// Vault Lock does not enforce a maximum retention period on the recovery points
-	// in the vault (allowing indefinite storage).
-	//
-	// If specified, any backup or copy job to the vault must have a lifecycle policy
-	// with a retention period equal to or shorter than the maximum retention period.
-	// If the job's retention period is longer than that maximum retention period,
-	// then the vault fails the backup or copy job, and you should either modify
-	// your lifecycle settings or use a different vault. Recovery points already
-	// stored in the vault prior to Vault Lock are not affected.
-	// +kubebuilder:validation:Optional
-	MaxRetentionDays *int64 `json:"maxRetentionDays,omitempty"`
-	// The Backup Vault Lock setting that specifies the minimum retention period
-	// that the vault retains its recovery points. If this parameter is not specified,
-	// Vault Lock will not enforce a minimum retention period.
-	//
-	// If specified, any backup or copy job to the vault must have a lifecycle policy
-	// with a retention period equal to or longer than the minimum retention period.
-	// If the job's retention period is shorter than that minimum retention period,
-	// then the vault fails the backup or copy job, and you should either modify
-	// your lifecycle settings or use a different vault. Recovery points already
-	// stored in the vault prior to Vault Lock are not affected.
-	// +kubebuilder:validation:Optional
-	MinRetentionDays *int64 `json:"minRetentionDays,omitempty"`
 	// The number of recovery points that are stored in a backup vault.
 	//
 	// Recovery point count value displayed in the console can be an approximation.
