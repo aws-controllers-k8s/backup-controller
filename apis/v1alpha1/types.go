@@ -636,6 +636,8 @@ type RuleInput struct {
 	// Reference field for TargetBackupVaultName
 	TargetBackupVaultRef                   *ackv1alpha1.AWSResourceReferenceWrapper `json:"targetBackupVaultRef,omitempty"`
 	TargetLogicallyAirGappedBackupVaultARN *string                                  `json:"targetLogicallyAirGappedBackupVaultARN,omitempty"`
+	// Reference field for TargetLogicallyAirGappedBackupVaultARN
+	TargetLogicallyAirGappedBackupVaultRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"targetLogicallyAirGappedBackupVaultRef,omitempty"`
 }
 
 // Defines a scanning action that specifies the malware scanner and scan mode
@@ -676,6 +678,8 @@ type ScanSetting struct {
 	MalwareScanner *string   `json:"malwareScanner,omitempty"`
 	ResourceTypes  []*string `json:"resourceTypes,omitempty"`
 	ScannerRoleARN *string   `json:"scannerRoleARN,omitempty"`
+	// Reference field for ScannerRoleARN
+	ScannerRoleRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"scannerRoleRef,omitempty"`
 }
 
 // Contains information about a scheduled backup plan execution, including the
