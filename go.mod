@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/aws-controllers-k8s/iam-controller v1.6.2
 	github.com/aws-controllers-k8s/kms-controller v1.2.2
-	github.com/aws-controllers-k8s/runtime v0.59.1
+	github.com/aws-controllers-k8s/runtime v0.60.0
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2 v1.41.4
 	github.com/aws/aws-sdk-go-v2/service/backup v1.54.10
