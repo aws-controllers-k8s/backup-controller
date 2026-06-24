@@ -208,6 +208,20 @@ spec:
                       type: object
                     targetLogicallyAirGappedBackupVaultARN:
                       type: string
+                    targetLogicallyAirGappedBackupVaultRef:
+                      description: Reference field for TargetLogicallyAirGappedBackupVaultARN
+                      properties:
+                        from:
+                          description: |-
+                            AWSResourceReference provides all the values necessary to reference another
+                            k8s resource for finding the identifier(Id/ARN/Name)
+                          properties:
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          type: object
+                      type: object
                   type: object
                 type: array
               scanSettings:
@@ -227,6 +241,20 @@ spec:
                       type: array
                     scannerRoleARN:
                       type: string
+                    scannerRoleRef:
+                      description: Reference field for ScannerRoleARN
+                      properties:
+                        from:
+                          description: |-
+                            AWSResourceReference provides all the values necessary to reference another
+                            k8s resource for finding the identifier(Id/ARN/Name)
+                          properties:
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          type: object
+                      type: object
                   type: object
                 type: array
               tags:

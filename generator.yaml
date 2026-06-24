@@ -134,6 +134,15 @@ resources:
         references:
           resource: BackupVault
           path: Status.ACKResourceMetadata.ARN
+      Rules.TargetLogicallyAirGappedBackupVaultARN:
+        references:
+          resource: BackupVault
+          path: Status.ACKResourceMetadata.ARN
+      ScanSettings.ScannerRoleARN:
+        references:
+          service_name: iam
+          resource: Role
+          path: Status.ACKResourceMetadata.ARN
     renames:
       operations:
         CreateBackupPlan:
