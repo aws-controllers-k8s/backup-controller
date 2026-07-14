@@ -15,7 +15,7 @@ package backup_selection
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackcondition "github.com/aws-controllers-k8s/runtime/pkg/condition"
@@ -34,5 +34,5 @@ func (rm *resourceManager) customUpdateBackupSelection(
 ) (*resource, error) {
 	msg := "BackupSelection resources cannot be updated. Delete and recreate the resource to apply changes."
 	ackcondition.SetTerminal(desired, corev1.ConditionTrue, &msg, nil)
-	return desired, ackerr.NewTerminalError(fmt.Errorf(msg))
+	return desired, ackerr.NewTerminalError(errors.New(msg))
 }
