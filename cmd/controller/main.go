@@ -46,6 +46,7 @@ import (
 	_ "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_plan"
 	_ "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_selection"
 	_ "github.com/aws-controllers-k8s/backup-controller/pkg/resource/backup_vault"
+	_ "github.com/aws-controllers-k8s/backup-controller/pkg/resource/logically_air_gapped_backup_vault"
 
 	"github.com/aws-controllers-k8s/backup-controller/pkg/version"
 )

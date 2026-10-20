@@ -12,6 +12,7 @@ rules:
   - backupplans
   - backupselections
   - backupvaults
+  - logicallyairgappedbackupvaults
   verbs:
   - create
   - delete
@@ -26,6 +27,7 @@ rules:
   - backupplans
   - backupselections
   - backupvaults
+  - logicallyairgappedbackupvaults
   verbs:
   - get
   - patch

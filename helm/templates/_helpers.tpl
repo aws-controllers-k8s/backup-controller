@@ -75,6 +75,7 @@ rules:
   - backupplans
   - backupselections
   - backupvaults
+  - logicallyairgappedbackupvaults
   verbs:
   - create
   - delete
@@ -89,6 +90,7 @@ rules:
   - backupplans/status
   - backupselections/status
   - backupvaults/status
+  - logicallyairgappedbackupvaults/status
   verbs:
   - get
   - patch

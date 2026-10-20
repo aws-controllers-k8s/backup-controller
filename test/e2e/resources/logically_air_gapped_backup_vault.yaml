@@ -1,0 +1,10 @@
+apiVersion: backup.services.k8s.aws/v1alpha1
+kind: LogicallyAirGappedBackupVault
+metadata:
+  name: $VAULT_NAME
+spec:
+  name: $VAULT_NAME
+  minRetentionDays: 7
+  maxRetentionDays: 30
+  tags:
+    ManagedBy: ACK

@@ -5,3 +5,4 @@ resources:
   - bases/backup.services.k8s.aws_backupplans.yaml
   - bases/backup.services.k8s.aws_backupselections.yaml
   - bases/backup.services.k8s.aws_backupvaults.yaml
+  - bases/backup.services.k8s.aws_logicallyairgappedbackupvaults.yaml
