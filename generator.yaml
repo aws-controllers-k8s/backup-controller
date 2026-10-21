@@ -242,9 +242,12 @@ resources:
         references:
           resource: BackupVault
           path: Status.ACKResourceMetadata.ARN
+      # The API requires an air-gapped vault ARN here, so the reference
+      # resolves against that kind. It pointed at BackupVault only because
+      # LogicallyAirGappedBackupVault was in the ignore list.
       Rules.TargetLogicallyAirGappedBackupVaultARN:
         references:
-          resource: BackupVault
+          resource: LogicallyAirGappedBackupVault
           path: Status.ACKResourceMetadata.ARN
       ScanSettings.ScannerRoleARN:
         references:
