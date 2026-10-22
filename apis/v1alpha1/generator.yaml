@@ -9,12 +9,29 @@ operations:
     input_wrapper_field_path: BackupSelection
   GetBackupSelection:
     output_wrapper_field_path: BackupSelection
+  # LogicallyAirGappedBackupVault has its own Create API but no Describe or
+  # Delete of its own: both are served by the generic BackupVault operations.
+  # The generator infers operations by name, so without these overrides the
+  # resource would generate with no read and no delete path. Listing both
+  # resource names keeps the operation bound to BackupVault as well, since the
+  # generator keys its operation map on (operation type, resource name).
+  DescribeBackupVault:
+    operation_type:
+      - Get
+    resource_name:
+      - BackupVault
+      - LogicallyAirGappedBackupVault
+  DeleteBackupVault:
+    operation_type:
+      - Delete
+    resource_name:
+      - BackupVault
+      - LogicallyAirGappedBackupVault
 
 ignore:
   resource_names:
     - Framework
     - LegalHold
-    - LogicallyAirGappedBackupVault
     - ReportPlan
     - RestoreAccessBackupVault
     - RestoreTestingPlan
@@ -31,8 +48,16 @@ resources:
         is_immutable: true
       # Cross-resource reference to KMS Key for encryption.
       # Set at vault creation time and cannot be changed afterward.
+      #
+      # Omitted means AWS Backup encrypts with an AWS-owned key and
+      # DescribeBackupVault reports that key's ARN, so without late
+      # initialization an omitted field reads back as a difference on every
+      # resync. There is no UpdateBackupVault API, so the update path only
+      # syncs tags and can never resolve it.
       EncryptionKeyARN:
         is_immutable: true
+        late_initialize:
+          skip_incomplete_check: {}
         references:
           resource: Key
           service_name: kms
@@ -104,6 +129,109 @@ resources:
         - InvalidParameterValueException
         - MissingParameterValueException
         - InvalidRequestException
+  LogicallyAirGappedBackupVault:
+    ignore_idempotency_token: true
+    # There is no update API for a logically air-gapped vault: the retention
+    # window and the encryption key are fixed at creation. Tags are the only
+    # mutable field, synced via TagResource/UntagResource, same as BackupVault.
+    update_operation:
+      custom_method_name: customUpdateLogicallyAirGappedBackupVault
+    synced:
+      when:
+      - path: Status.VaultState
+        in:
+        - AVAILABLE
+        - FAILED
+    hooks:
+      sdk_read_one_post_set_output:
+        template_path: hooks/logically_air_gapped_backup_vault/sdk_read_one_post_set_output.go.tpl
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      # The retention window is set at creation and cannot be changed.
+      MinRetentionDays:
+        is_immutable: true
+      MaxRetentionDays:
+        is_immutable: true
+      # The create output carries the vault ARN as BackupVaultArn. The
+      # generator only recognizes '{Resource}Arn' by default, which for this
+      # resource would be LogicallyAirGappedBackupVaultArn, so without is_arn
+      # the ARN lands in a plain status field and
+      # Status.ACKResourceMetadata.ARN is never set. Tag reads are guarded on
+      # that field, so they silently do nothing.
+      BackupVaultARN:
+        is_arn: true
+      # Cross-resource reference to KMS Key for encryption. Omitted means the
+      # vault is encrypted with an AWS-owned key, and DescribeBackupVault
+      # reports that key's ARN. Late initializing keeps an omitted field from
+      # reading back as a permanent delta that the tags-only update path can
+      # never resolve.
+      EncryptionKeyARN:
+        is_immutable: true
+        late_initialize:
+          skip_incomplete_check: {}
+        references:
+          resource: Key
+          service_name: kms
+          path: Status.ACKResourceMetadata.ARN
+      # Read-only status fields from DescribeBackupVault. Unlike a standard
+      # vault, DescribeBackupVault does return VaultState for this type, which
+      # is what the synced condition above keys on.
+      VaultState:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: VaultState
+      VaultType:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: VaultType
+      CreationDate:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: CreationDate
+      Locked:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: Locked
+      LockDate:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: LockDate
+      NumberOfRecoveryPoints:
+        is_read_only: true
+        from:
+          operation: DescribeBackupVault
+          path: NumberOfRecoveryPoints
+    renames:
+      operations:
+        CreateLogicallyAirGappedBackupVault:
+          input_fields:
+            BackupVaultName: Name
+            BackupVaultTags: Tags
+          output_fields:
+            BackupVaultName: Name
+        DeleteBackupVault:
+          input_fields:
+            BackupVaultName: Name
+        DescribeBackupVault:
+          input_fields:
+            BackupVaultName: Name
+          output_fields:
+            BackupVaultName: Name
+    exceptions:
+      errors:
+        404:
+          code: AccessDeniedException
+      terminal_codes:
+        - InvalidParameterValueException
+        - MissingParameterValueException
+        - InvalidRequestException
   BackupPlan:
     ignore_idempotency_token: true
     hooks:
@@ -134,9 +262,12 @@ resources:
         references:
           resource: BackupVault
           path: Status.ACKResourceMetadata.ARN
+      # The API requires an air-gapped vault ARN here, so the reference
+      # resolves against that kind. It pointed at BackupVault only because
+      # LogicallyAirGappedBackupVault was in the ignore list.
       Rules.TargetLogicallyAirGappedBackupVaultARN:
         references:
-          resource: BackupVault
+          resource: LogicallyAirGappedBackupVault
           path: Status.ACKResourceMetadata.ARN
       ScanSettings.ScannerRoleARN:
         references:

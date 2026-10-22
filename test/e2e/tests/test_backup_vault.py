@@ -153,6 +153,13 @@ class TestBackupVault:
         cr = k8s.get_resource(ref)
         assert cr["status"].get("creationDate") is not None
 
+        # This fixture declares no encryptionKeyARN, so AWS Backup encrypts
+        # with an AWS-owned key and reports that key's ARN back. Late
+        # initialization has to copy it into the spec, otherwise it reads back
+        # as a difference on every resync that the tags-only update path can
+        # never resolve.
+        assert cr["spec"].get("encryptionKeyARN") == response["EncryptionKeyArn"]
+
     def test_create_with_tags(self, backup_client, backup_vault_with_tags):
         """Test that tags specified at creation time are correctly applied."""
         (ref, cr) = backup_vault_with_tags

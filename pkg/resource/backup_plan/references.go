@@ -299,8 +299,8 @@ func (rm *resourceManager) resolveReferenceForRules_TargetLogicallyAirGappedBack
 			if err != nil {
 				return hasReferences, err
 			}
-			obj := &svcapitypes.BackupVault{}
-			if err := getReferencedResourceState_BackupVault(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+			obj := &svcapitypes.LogicallyAirGappedBackupVault{}
+			if err := getReferencedResourceState_LogicallyAirGappedBackupVault(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
 				return hasReferences, err
 			}
 			ko.Spec.Rules[f0idx].TargetLogicallyAirGappedBackupVaultARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
@@ -308,6 +308,60 @@ func (rm *resourceManager) resolveReferenceForRules_TargetLogicallyAirGappedBack
 	}
 
 	return hasReferences, nil
+}
+
+// getReferencedResourceState_LogicallyAirGappedBackupVault looks up whether a referenced resource
+// exists and is in a ACK.ResourceSynced=True state. If the referenced resource does exist and is
+// in a Synced state, returns nil, otherwise returns `ackerr.ResourceReferenceTerminalFor` or
+// `ResourceReferenceNotSyncedFor` depending on if the resource is in a Terminal state.
+func getReferencedResourceState_LogicallyAirGappedBackupVault(
+	ctx context.Context,
+	apiReader client.Reader,
+	obj *svcapitypes.LogicallyAirGappedBackupVault,
+	name string, // the Kubernetes name of the referenced resource
+	namespace string, // the Kubernetes namespace of the referenced resource
+) error {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := apiReader.Get(ctx, namespacedName, obj)
+	if err != nil {
+		return err
+	}
+	var refResourceTerminal bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
+			cond.Status == corev1.ConditionTrue {
+			return ackerr.ResourceReferenceTerminalFor(
+				"LogicallyAirGappedBackupVault",
+				namespace, name)
+		}
+	}
+	if refResourceTerminal {
+		return ackerr.ResourceReferenceTerminalFor(
+			"LogicallyAirGappedBackupVault",
+			namespace, name)
+	}
+	var refResourceSynced bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+			cond.Status == corev1.ConditionTrue {
+			refResourceSynced = true
+		}
+	}
+	if !refResourceSynced {
+		return ackerr.ResourceReferenceNotSyncedFor(
+			"LogicallyAirGappedBackupVault",
+			namespace, name)
+	}
+	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+		return ackerr.ResourceReferenceMissingTargetFieldFor(
+			"LogicallyAirGappedBackupVault",
+			namespace, name,
+			"Status.ACKResourceMetadata.ARN")
+	}
+	return nil
 }
 
 // resolveReferenceForScanSettings_ScannerRoleARN reads the resource referenced

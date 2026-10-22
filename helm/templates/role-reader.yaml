@@ -19,6 +19,7 @@ rules:
   - backupplans
   - backupselections
   - backupvaults
+  - logicallyairgappedbackupvaults
   verbs:
   - get
   - list
