@@ -18,6 +18,8 @@ import pytest
 import time
 import logging
 
+from botocore.exceptions import ClientError
+
 from acktest.resources import random_suffix_name
 from acktest.k8s import resource as k8s
 from acktest import tags
@@ -140,15 +142,20 @@ class TestLogicallyAirGappedBackupVault:
         assert deleted
         time.sleep(DELETE_WAIT_AFTER_SECONDS)
 
+        # DescribeBackupVault answers AccessDeniedException for an air-gapped
+        # vault that no longer exists, which is why the controller maps 404 to
+        # that code. AccessDeniedException is not in the Backup service model,
+        # so botocore does not expose it on client.exceptions; catch ClientError
+        # and match on the code instead.
         try:
             backup_client.describe_backup_vault(BackupVaultName=vault_name)
             assert False, (
                 f"LogicallyAirGappedBackupVault {vault_name} still exists in AWS "
                 "after deletion"
             )
-        except backup_client.exceptions.ResourceNotFoundException:
-            pass
-        except backup_client.exceptions.AccessDeniedException:
-            # DescribeBackupVault answers AccessDenied for a vault that no
-            # longer exists, which is why the controller maps 404 to it.
-            pass
+        except ClientError as error:
+            code = error.response["Error"]["Code"]
+            assert code in ("AccessDeniedException", "ResourceNotFoundException"), (
+                f"Expected a not-found error for deleted vault {vault_name}, "
+                f"got {code}"
+            )
