@@ -115,6 +115,12 @@ class TestLogicallyAirGappedBackupVault:
         assert cr["spec"]["minRetentionDays"] == MIN_RETENTION_DAYS
         assert cr["spec"]["maxRetentionDays"] == MAX_RETENTION_DAYS
 
+        # The fixture declares no encryptionKeyARN, so AWS encrypts with an
+        # AWS-owned key and reports that key's ARN back. Late initialization
+        # has to copy it into the spec, otherwise it reads back as a permanent
+        # delta the tags-only update path can never resolve.
+        assert cr["spec"].get("encryptionKeyARN") == response["EncryptionKeyArn"]
+
         # Tags are the only mutable field on this resource: there is no update
         # API for the vault itself.
         k8s.patch_custom_resource(ref, {"spec": {"tags": UPDATED_TAGS}})

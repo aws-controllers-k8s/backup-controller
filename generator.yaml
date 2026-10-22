@@ -155,9 +155,14 @@ resources:
       BackupVaultARN:
         is_arn: true
       # Cross-resource reference to KMS Key for encryption. Omitted means the
-      # vault is encrypted with an AWS-owned key.
+      # vault is encrypted with an AWS-owned key, and DescribeBackupVault
+      # reports that key's ARN. Late initializing keeps an omitted field from
+      # reading back as a permanent delta that the tags-only update path can
+      # never resolve.
       EncryptionKeyARN:
         is_immutable: true
+        late_initialize:
+          skip_incomplete_check: {}
         references:
           resource: Key
           service_name: kms
