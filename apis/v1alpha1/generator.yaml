@@ -141,12 +141,19 @@ resources:
       Name:
         is_primary_key: true
         is_immutable: true
-      # The retention window is set at creation and cannot be changed. The API
-      # rejects a MinRetentionDays below 7.
+      # The retention window is set at creation and cannot be changed.
       MinRetentionDays:
         is_immutable: true
       MaxRetentionDays:
         is_immutable: true
+      # The create output carries the vault ARN as BackupVaultArn. The
+      # generator only recognizes '{Resource}Arn' by default, which for this
+      # resource would be LogicallyAirGappedBackupVaultArn, so without is_arn
+      # the ARN lands in a plain status field and
+      # Status.ACKResourceMetadata.ARN is never set. Tag reads are guarded on
+      # that field, so they silently do nothing.
+      BackupVaultARN:
+        is_arn: true
       # Cross-resource reference to KMS Key for encryption. Omitted means the
       # vault is encrypted with an AWS-owned key.
       EncryptionKeyARN:

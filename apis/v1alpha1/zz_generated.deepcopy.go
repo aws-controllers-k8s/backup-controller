@@ -1538,11 +1538,6 @@ func (in *LogicallyAirGappedBackupVaultStatus) DeepCopyInto(out *LogicallyAirGap
 			}
 		}
 	}
-	if in.BackupVaultARN != nil {
-		in, out := &in.BackupVaultARN, &out.BackupVaultARN
-		*out = new(string)
-		**out = **in
-	}
 	if in.CreationDate != nil {
 		in, out := &in.CreationDate, &out.CreationDate
 		*out = (*in).DeepCopy()

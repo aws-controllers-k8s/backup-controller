@@ -65,9 +65,6 @@ type LogicallyAirGappedBackupVaultStatus struct {
 	// resource
 	// +kubebuilder:validation:Optional
 	Conditions []*ackv1alpha1.Condition `json:"conditions"`
-	// The ARN (Amazon Resource Name) of the vault.
-	// +kubebuilder:validation:Optional
-	BackupVaultARN *string `json:"backupVaultARN,omitempty"`
 	// The date and time that a backup vault is created, in Unix format and Coordinated
 	// Universal Time (UTC). The value of CreationDate is accurate to milliseconds.
 	// For example, the value 1516925490.087 represents Friday, January 26, 2018

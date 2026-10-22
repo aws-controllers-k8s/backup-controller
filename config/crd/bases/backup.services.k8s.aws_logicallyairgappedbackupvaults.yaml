@@ -144,9 +144,6 @@ spec:
                 - ownerAccountID
                 - region
                 type: object
-              backupVaultARN:
-                description: The ARN (Amazon Resource Name) of the vault.
-                type: string
               conditions:
                 description: |-
                   All CRs managed by ACK have a common `Status.Conditions` member that

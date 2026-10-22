@@ -105,6 +105,11 @@ class TestLogicallyAirGappedBackupVault:
         assert cr["status"].get("vaultType") == "LOGICALLY_AIR_GAPPED_BACKUP_VAULT"
         assert cr["status"].get("creationDate") is not None
 
+        # The vault ARN has to land in ACKResourceMetadata rather than a plain
+        # status field. Tag reads and writes are guarded on it, so they go
+        # quietly nowhere when it is unset.
+        assert cr["status"]["ackResourceMetadata"]["arn"] == response["BackupVaultArn"]
+
         # Verify the retention window round-trips into the spec, so it does not
         # read back as a permanent delta on every resync.
         assert cr["spec"]["minRetentionDays"] == MIN_RETENTION_DAYS

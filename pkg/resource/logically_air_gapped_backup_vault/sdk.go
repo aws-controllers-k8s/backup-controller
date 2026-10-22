@@ -89,10 +89,12 @@ func (rm *resourceManager) sdkFind(
 	// the original Kubernetes object we passed to the function
 	ko := r.ko.DeepCopy()
 
+	if ko.Status.ACKResourceMetadata == nil {
+		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
+	}
 	if resp.BackupVaultArn != nil {
-		ko.Status.BackupVaultARN = resp.BackupVaultArn
-	} else {
-		ko.Status.BackupVaultARN = nil
+		arn := ackv1alpha1.AWSResourceName(*resp.BackupVaultArn)
+		ko.Status.ACKResourceMetadata.ARN = &arn
 	}
 	if resp.BackupVaultName != nil {
 		ko.Spec.Name = resp.BackupVaultName
@@ -222,10 +224,12 @@ func (rm *resourceManager) sdkCreate(
 	// the original Kubernetes object we passed to the function
 	ko := desired.ko.DeepCopy()
 
+	if ko.Status.ACKResourceMetadata == nil {
+		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
+	}
 	if resp.BackupVaultArn != nil {
-		ko.Status.BackupVaultARN = resp.BackupVaultArn
-	} else {
-		ko.Status.BackupVaultARN = nil
+		arn := ackv1alpha1.AWSResourceName(*resp.BackupVaultArn)
+		ko.Status.ACKResourceMetadata.ARN = &arn
 	}
 	if resp.BackupVaultName != nil {
 		ko.Spec.Name = resp.BackupVaultName
