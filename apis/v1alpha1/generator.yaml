@@ -48,8 +48,16 @@ resources:
         is_immutable: true
       # Cross-resource reference to KMS Key for encryption.
       # Set at vault creation time and cannot be changed afterward.
+      #
+      # Omitted means AWS Backup encrypts with an AWS-owned key and
+      # DescribeBackupVault reports that key's ARN, so without late
+      # initialization an omitted field reads back as a difference on every
+      # resync. There is no UpdateBackupVault API, so the update path only
+      # syncs tags and can never resolve it.
       EncryptionKeyARN:
         is_immutable: true
+        late_initialize:
+          skip_incomplete_check: {}
         references:
           resource: Key
           service_name: kms
